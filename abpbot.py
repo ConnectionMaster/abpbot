@@ -13,6 +13,7 @@ further functionality is implemented by additional handler classes.
 """
 
 import sys
+import ConfigParser
 from ircbot import SingleServerIRCBot
 import irclib
 from botcommon import OutputManager
@@ -130,7 +131,6 @@ def main():
 
   configfile = sys.argv[1]
 
-  import ConfigParser
   config = ConfigParser.ConfigParser()
   config.read(configfile)
   Bot(config)
