@@ -27,15 +27,13 @@ svn_url = \
 svn_url = svn_url[svn_url.find(' ')+1:svn_url.rfind('/')+1]
 
 class Bot(SingleServerIRCBot):
-  def __init__(self, channel, nickname, nickpass, ircaddr, udpaddr,
-      debug=False):
+  def __init__(self, channel, nickname, nickpass, ircaddr, udpaddr):
     SingleServerIRCBot.__init__(self, [ircaddr], nickname, nickname, 5)
     self.channel = channel
     # self.nickname is the nickname we _want_. The nickname we actually
     # have at any particular time is c.get_nickname().
     self.nickname = nickname
     self.nickpass = nickpass
-    self.debug = debug
     self.queue = OutputManager(self.connection, .9)
     self.queue.start()
     self.inputthread = UDPInput(self, udpaddr)
@@ -49,39 +47,6 @@ class Bot(SingleServerIRCBot):
       self.connection.quit("%s: %s" % (e.__class__.__name__, e.args))
       raise
 
-
-  _uninteresting_events = {
-    'all_raw_messages': None,
-    'yourhost': None,
-    'created': None,
-    'myinfo': None,
-    'featurelist': None,
-    'luserclient': None,
-    'luserop': None,
-    'luserchannels': None,
-    'luserme': None,
-    'n_local': None,
-    'n_global': None,
-    'luserconns': None,
-    'motdstart': None,
-    'motd': None,
-    'endofmotd': None,
-    'topic': None,
-    'topicinfo': None,
-    'ping': None,
-    }
-  def _dispatcher(self, c, e):
-    if self.debug:
-      eventtype = e.eventtype()
-      if eventtype not in self._uninteresting_events:
-        source = e.source()
-        if source is not None:
-          source = nm_to_n(source)
-        else:
-          source = ''
-        print "E: %s (%s->%s) %s" % (eventtype, source, e.target(),
-            e.arguments())
-    SingleServerIRCBot._dispatcher(self, c, e)
 
   def on_nicknameinuse(self, c, e):
     c.nick(c.get_nickname() + "_")
@@ -178,7 +143,7 @@ class Bot(SingleServerIRCBot):
 botname = 'beanbot'
 
 def usage(exitcode=1):
-  print "Usage: %s.py [-d] [<config-file>]" % botname
+  print "Usage: %s.py [<config-file>]" % botname
   sys.exit(exitcode)
 
 def parse_host_port(hostport, default_port=None):
@@ -201,14 +166,9 @@ def main():
   import getopt
 
   try:
-    opts, args = getopt.gnu_getopt(sys.argv, 'd', ('debug',))
+    opts, args = getopt.gnu_getopt(sys.argv, '', ())
   except getopt.GetoptError:
     usage()
-
-  debug = False
-  for opt, val in opts:
-    if opt in ('-d', '--debug'):
-      debug = True
 
   if len(args) not in (1, 2):
     usage()
@@ -231,7 +191,7 @@ def main():
     nickpass = None
   udpaddr = parse_host_port(c.get(cfgsect, 'udp-addr'))
 
-  Bot(channel, nickname, nickpass, ircaddr, udpaddr, debug)
+  Bot(channel, nickname, nickpass, ircaddr, udpaddr)
 
 
 class UDPInput(Thread):
