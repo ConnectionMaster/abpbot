@@ -76,7 +76,7 @@ NICK_PASS = ""
 LOG_FOLDER = "logs"
 
 # The message returned when someone messages the bot
-HELP_MESSAGE = "Check out http://excid3.com"
+HELP_MESSAGE = "I am the Adblock Plus logging bot."
 
 # FTP Configuration
 FTP_SERVER = ""
@@ -306,6 +306,7 @@ class Logbot(SingleServerIRCBot):
           c.privmsg("nickserv", "identify %s" % self.nick_pass)
 
         for chan in self.chans:
+            c.privmsg("chanserv", "invite %s" % chan)
             c.join(chan)
 
     def on_nicknameinuse(self, c, e):
@@ -314,8 +315,9 @@ class Logbot(SingleServerIRCBot):
 
     def on_invite(self, c, e):
         """Arbitrarily join any channel invited to"""
-        c.join(e.arguments()[0])
+        #c.join(e.arguments()[0])
         #TODO: Save? Rewrite config file?
+        pass
 
     ### Loggable events
 
