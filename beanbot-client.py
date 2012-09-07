@@ -29,4 +29,5 @@ if __name__ == '__main__':
     data = data[:400] + "..."
   sock = socket(AF_INET, SOCK_DGRAM)
   sock.sendto(data, serve_addr)
+  sock.sendto("https://hg.adblockplus.org/%(repo)s/rev/%(rev)s" % locals(), serve_addr)
   sock.close()
