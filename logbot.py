@@ -35,7 +35,6 @@ __license__ = "GPL2"
 
 import cgi
 import os
-import ftplib
 import sys
 from time import strftime
 try:
@@ -77,15 +76,6 @@ LOG_FOLDER = "logs"
 
 # The message returned when someone messages the bot
 HELP_MESSAGE = "I am the Adblock Plus logging bot."
-
-# FTP Configuration
-FTP_SERVER = ""
-FTP_USER = ""
-FTP_PASS = ""
-# This folder and sub folders for any channels MUST be created on the server
-FTP_FOLDER = ""
-# The amount of messages to wait before uploading to the FTP server
-FTP_WAIT = 25
 
 CHANNEL_LOCATIONS_FILE = os.path.expanduser("~/.logbot-channel_locations.conf")
 DEFAULT_TIMEZONE = 'UTC'
@@ -169,7 +159,6 @@ class Logbot(SingleServerIRCBot):
 
         self.chans = [x.lower() for x in channels]
         self.format = format
-        self.set_ftp()
         self.count = 0
         self.nick_pass = nick_pass
 
@@ -183,9 +172,6 @@ class Logbot(SingleServerIRCBot):
 
     def color(self, user):
         return "#%s" % md5(user).hexdigest()[:6]
-
-    def set_ftp(self, ftp=None):
-        self.ftp = ftp
 
     def format_event(self, name, event, params):
         msg = self.format[name]
@@ -223,36 +209,6 @@ class Logbot(SingleServerIRCBot):
             self.append_log_msg(chan, msg)
 
         self.count += 1
-
-        if self.ftp and self.count > FTP_WAIT:
-            self.count = 0
-            print "Uploading to FTP..."
-            for root, dirs, files in os.walk("logs"):
-                #TODO: Create folders
-
-                for fname in files:
-                    full_fname = os.path.join(root, fname)
-
-                    if sys.platform == 'win32':
-                        remote_fname = "/".join(full_fname.split("\\")[1:])
-                    else:
-                        remote_fname = "/".join(full_fname.split("/")[1:])
-                    if DEBUG: print repr(remote_fname)
-
-                    # Upload!
-                    try: self.ftp.storbinary("STOR %s" % remote_fname, open(full_fname, "rb"))
-                    # Folder doesn't exist, try creating it and storing again
-                    except ftplib.error_perm, e: #code, error = str(e).split(" ", 1)
-                        if str(e).split(" ", 1)[0] == "553":
-                            self.ftp.mkd(os.path.dirname(remote_fname))
-                            self.ftp.storbinary("STOR %s" % remote_fname, open(full_fname, "rb"))
-                        else: raise e
-                    # Reconnect on timeout
-                    except ftplib.error_temp, e: self.set_ftp(connect_ftp())
-                    # Unsure of error, try reconnecting
-                    except:                      self.set_ftp(connect_ftp())
-
-            print "Finished uploading"
 
     def append_log_msg(self, channel, msg):
         print "%s >>> %s" % (channel, msg)
@@ -387,12 +343,6 @@ class Logbot(SingleServerIRCBot):
             f = open(CHANNEL_LOCATIONS_FILE, 'r')
             self.channel_locations = dict((k.lower(), v) for k, v in dict([line.strip().split(None,1) for line in f.readlines()]).iteritems())
 
-def connect_ftp():
-    print "Using FTP %s..." % (FTP_SERVER)
-    f = ftplib.FTP(FTP_SERVER, FTP_USER, FTP_PASS)
-    f.cwd(FTP_FOLDER)
-    return f
-
 def main():
     # Create the logs directory
     if not os.path.exists(LOG_FOLDER):
@@ -402,13 +352,8 @@ def main():
     # Start the bot
     bot = Logbot(SERVER, PORT, SERVER_PASS, CHANNELS, NICK, NICK_PASS)
     try:
-        # Connect to FTP
-        if FTP_SERVER:
-            bot.set_ftp(connect_ftp())
-
         bot.start()
     except KeyboardInterrupt:
-        if FTP_SERVER: bot.ftp.quit()
         bot.quit()
 
 
