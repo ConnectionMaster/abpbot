@@ -47,7 +47,6 @@ try:
 except:
     import md5
 
-from ircbot import SingleServerIRCBot
 from irclib import nm_to_n
 
 import re
@@ -60,28 +59,9 @@ def urlify2(value):
     return pat1.sub(r'\1<a href="\2" target="_blank">\3</a>', value)
     #return urlfinder.sub(r'<a href="\1">\1</a>', value)
 
-### Configuration options
-DEBUG = False
-
-# IRC Server Configuration
-SERVER = "irc.freenode.net"
-PORT = 6667
-SERVER_PASS = None
-CHANNELS=["#excid3","#keryx"]
-NICK = "timber"
-NICK_PASS = ""
-
-# The local folder to save logs
-LOG_FOLDER = "logs"
-
-# The message returned when someone messages the bot
-HELP_MESSAGE = "I am the Adblock Plus logging bot."
-
-CHANNEL_LOCATIONS_FILE = os.path.expanduser("~/.logbot-channel_locations.conf")
 DEFAULT_TIMEZONE = 'UTC'
 
 default_format = {
-    "help" : HELP_MESSAGE,
     "action" : '<span class="person" style="color:%color%">* %user% %message%</span>',
     "join" : '-!- <span class="join">%user%</span> [%host%] has joined %channel%',
     "kick" : '-!- <span class="kick">%user%</span> was kicked from %channel% by %kicker% [%reason%]',
@@ -149,26 +129,17 @@ def write_string(filename, string):
 
 ### Logbot class
 
-class Logbot(SingleServerIRCBot):
-    def __init__(self, server, port, server_pass=None, channels=[],
-                 nick="timber", nick_pass=None, format=default_format):
-        SingleServerIRCBot.__init__(self,
-                                    [(server, port, server_pass)],
-                                    nick,
-                                    nick)
-
-        self.chans = [x.lower() for x in channels]
+class Logbot():
+    def __init__(self, config, queue, format=default_format):
+        self.channel = config.get('main', 'channel')
+        self.log_folder = config.get('logbot', 'logdir')
         self.format = format
         self.count = 0
-        self.nick_pass = nick_pass
 
-        self.load_channel_locations()
-        print "Logbot %s" % __version__
-        print "Connecting to %s:%i..." % (server, port)
-        print "Press Ctrl-C to quit"
-
-    def quit(self):
-        self.connection.disconnect("Quitting...")
+        # Create the logs directory
+        if not os.path.exists(self.log_folder):
+            os.makedirs(self.log_folder)
+            write_string(os.path.join(self.log_folder, 'index.html'), html_header.replace("%title%", "Chat Logs"))
 
     def color(self, user):
         return "#%s" % md5(user).hexdigest()[:6]
@@ -211,21 +182,20 @@ class Logbot(SingleServerIRCBot):
         self.count += 1
 
     def append_log_msg(self, channel, msg):
-        print "%s >>> %s" % (channel, msg)
         #Make sure the channel is always lowercase to prevent logs with other capitalisations to be created
         channel_title = channel
         channel = channel.lower()
 
         # Create the channel path if necessary
-        chan_path = "%s/%s" % (LOG_FOLDER, channel)
+        chan_path = os.path.join(self.log_folder, channel)
         if not os.path.exists(chan_path):
             os.makedirs(chan_path)
 
             # Create channel index
-            write_string("%s/index.html" % chan_path, html_header.replace("%title%", "%s | Logs" % channel_title))
+            write_string(os.path.join(chan_path, 'index.html'), html_header.replace("%title%", "%s | Logs" % channel_title))
 
             # Append channel to log index
-            append_line("%s/index.html" % LOG_FOLDER, '<a href="%s/index.html">%s</a>' % (channel.replace("#", "%23"), channel_title))
+            append_line(os.path.join(self.log_folder, 'index.html'), '<a href="%s/index.html">%s</a>' % (channel.replace("#", "%23"), channel_title))
 
         # Current log
         try:
@@ -236,44 +206,19 @@ class Logbot(SingleServerIRCBot):
             time = strftime("%H:%M:%S")
             date = strftime("%Y-%m-%d")
 
-        log_path = "%s/%s/%s.html" % (LOG_FOLDER, channel, date)
+        log_path = os.path.join(self.log_folder, channel, '%s.html' % date)
 
         # Create the log date index if it doesnt exist
         if not os.path.exists(log_path):
             write_string(log_path, html_header.replace("%title%", "%s | Logs for %s" % (channel_title, date)))
 
             # Append date log
-            append_line("%s/index.html" % chan_path, '<a href="%s.html">%s</a>' % (date, date))
+            append_line(os.path.join(chan_path, 'index.html'), '<a href="%s.html">%s</a>' % (date, date))
 
         # Append current message
         message = "<a href=\"#%s\" name=\"%s\" class=\"time\">[%s]</a> %s" % \
                                           (time, time, time, msg)
         append_line(log_path, message)
-
-    ### These are the IRC events
-
-    def on_all_raw_messages(self, c, e):
-        """Display all IRC connections in terminal"""
-        if DEBUG: print e.arguments()[0]
-
-    def on_welcome(self, c, e):
-        """Join channels after successful connection"""
-        if self.nick_pass:
-          c.privmsg("nickserv", "identify %s" % self.nick_pass)
-
-        for chan in self.chans:
-            c.privmsg("chanserv", "invite %s" % chan)
-            c.join(chan)
-
-    def on_nicknameinuse(self, c, e):
-        """Nickname in use"""
-        c.nick(c.get_nickname() + "_")
-
-    def on_invite(self, c, e):
-        """Arbitrarily join any channel invited to"""
-        #c.join(e.arguments()[0])
-        #TODO: Save? Rewrite config file?
-        pass
 
     ### Loggable events
 
@@ -301,61 +246,24 @@ class Logbot(SingleServerIRCBot):
 
     def on_nick(self, c, e):
         old_nick = nm_to_n(e.source())
-        # Only write the event on channels that actually had the user in the channel
-        for chan in self.channels:
-            if old_nick in [x.lstrip('~%&@+') for x in self.channels[chan].users()]:
-                self.write_event("nick", e,
-                             {"%old%" : old_nick,
-                              "%new%" : e.target(),
-                              "%chan%": chan,
-                             })
+        self.write_event("nick", e,
+                     {"%old%" : old_nick,
+                      "%new%" : e.target(),
+                      "%chan%": chan,
+                     })
 
     def on_part(self, c, e):
         self.write_event("part", e)
 
     def on_pubmsg(self, c, e):
-        if e.arguments()[0].startswith(NICK):
-            c.privmsg(e.target(), self.format["help"])
         self.write_event("pubmsg", e)
 
     def on_pubnotice(self, c, e):
         self.write_event("pubnotice", e)
 
-    def on_privmsg(self, c, e):
-        print nm_to_n(e.source()), e.arguments()
-        c.privmsg(nm_to_n(e.source()), self.format["help"])
-
     def on_quit(self, c, e):
         nick = nm_to_n(e.source())
-        # Only write the event on channels that actually had the user in the channel
-        for chan in self.channels:
-            if nick in [x.lstrip('~%&@+') for x in self.channels[chan].users()]:
-                self.write_event("quit", e, {"%chan%" : chan})
+        self.write_event("quit", e, {"%chan%" : self.channel})
 
     def on_topic(self, c, e):
         self.write_event("topic", e)
-
-    # Loads the channel - timezone-location pairs from the CHANNEL_LOCATIONS_FILE
-    # See the README for details and example
-    def load_channel_locations(self):
-        self.channel_locations = {}
-        if os.path.exists(CHANNEL_LOCATIONS_FILE):
-            f = open(CHANNEL_LOCATIONS_FILE, 'r')
-            self.channel_locations = dict((k.lower(), v) for k, v in dict([line.strip().split(None,1) for line in f.readlines()]).iteritems())
-
-def main():
-    # Create the logs directory
-    if not os.path.exists(LOG_FOLDER):
-        os.makedirs(LOG_FOLDER)
-        write_string("%s/index.html" % LOG_FOLDER, html_header.replace("%title%", "Chat Logs"))
-
-    # Start the bot
-    bot = Logbot(SERVER, PORT, SERVER_PASS, CHANNELS, NICK, NICK_PASS)
-    try:
-        bot.start()
-    except KeyboardInterrupt:
-        bot.quit()
-
-
-if __name__ == "__main__":
-    main()

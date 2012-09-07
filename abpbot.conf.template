@@ -1,0 +1,12 @@
+[main]
+host = irc.freenode.net
+channel = #red-bean
+nickname = abpbot
+nickpass =
+needinvite = yes
+
+[logbot]
+logdir = logs
+
+[beanbot]
+udp-addr = localhost:47701
