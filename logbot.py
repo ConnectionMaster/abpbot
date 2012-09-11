@@ -249,7 +249,7 @@ class Logbot():
         self.write_event("nick", e,
                      {"%old%" : old_nick,
                       "%new%" : e.target(),
-                      "%chan%": chan,
+                      "%chan%": self.channel,
                      })
 
     def on_part(self, c, e):
