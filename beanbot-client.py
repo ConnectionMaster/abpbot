@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
   data = (
       "%(IRC_RED)s%(repo)s"
-      "%(IRC_NORMAL)[%(branch)s] "
+      "%(IRC_NORMAL)s[%(branch)s] "
       "%(IRC_NORMAL)s%(IRC_BOLD)s%(author)s "
       "%(IRC_NORMAL)s%(IRC_ULINE)s%(rev)s%(IRC_NORMAL)s "
       "%(description)s" % locals()
