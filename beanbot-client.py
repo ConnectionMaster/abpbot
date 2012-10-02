@@ -20,7 +20,8 @@ if __name__ == '__main__':
     author = match.group(1)
 
   data = (
-      "%(IRC_RED)s%(repo)s[%(branch)s]"
+      "%(IRC_RED)s%(repo)s "
+      "[%(branch)s] "
       "%(IRC_NORMAL)s%(IRC_BOLD)s%(author)s "
       "%(IRC_NORMAL)s%(IRC_ULINE)s%(rev)s%(IRC_NORMAL)s "
       "%(description)s" % locals()
