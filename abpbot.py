@@ -17,7 +17,7 @@ import ConfigParser
 from ircbot import SingleServerIRCBot
 import irclib
 from botcommon import OutputManager
-import logbot, beanbot
+import logbot, beanbot, decisionbot
 
 # The message returned when someone messages the bot
 HELP_MESSAGE = "I am the Adblock Plus logging bot."
@@ -62,7 +62,9 @@ class Bot(SingleServerIRCBot):
     def handler_for_key(self, key):
       return lambda c, e: self.execute_handlers(key, c, e)
 
-    for handler in logbot.Logbot(config, self.queue), beanbot.Beanbot(config, self.queue):
+    for handler in (logbot.Logbot(config, self.queue),
+                    beanbot.Beanbot(config, self.queue),
+                    decisionbot.Decisionbot(config, self.queue)):
       for props in handler.__dict__, handler.__class__.__dict__:
         for key in props.iterkeys():
           if not key.startswith('on_'):
